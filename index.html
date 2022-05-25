@@ -17,8 +17,8 @@
 
     <p>※ ○が先行</p>
 
-    <p id="maru-win" style="display:none; color: red; font-size: 20px;">○の勝利</p>
-    <p id="batu-win" style="display:none; color: red; font-size: 20px;">✖️の勝利</p>
+    <p id="maru-win" style="display:none; color: red; font-size: 20px;">黒の勝利</p>
+    <p id="batu-win" style="display:none; color: red; font-size: 20px;">白の勝利</p>
     <p id="draw" style="display:none; color: red; font-size: 20px;">引き分け</p>
     <p style="margin-top: 30px;">リセットするにはブラウザを更新してください</p>
   </div>
@@ -26,55 +26,80 @@
   <script>
     
     $(document).ready(function () {
-      // 縦マス数
-      const vertical_square_length = 3;
-      // 横マス数
-      const lateral_square_length = 3;
-      // 全マス数
-      const all_square_length = 9;
-      // 判定用配列
-      // 0が未入力、1が◯、2が✖️
-      let current_state = [];
-      // 勝利パターン
-      const win_patterns = [
-        [1, 2, 3],
-        [4, 5, 6],
-        [7, 8, 9],
-        [1, 4, 7],
-        [2, 5, 8],
-        [3, 6, 9],
-        [1, 5, 9],
-        [3, 5, 7]
-      ];
+      //////////////
+      // 必要データ
+      //////////////
+      // 状態
+      const black = 1;
+      const white = 2;
+      const none = 0;
+      // 0が未入力、1が黒、2が白
+      let current_state = {};
       // ゲーム終了判定
       let is_finish = false;
 
 
 
 
-
-
+      
+      /////////////
       // 要素作成
+      /////////////
       const tbody = $(".body");
+      // 初期データ作成
+      const make_current_state = (current_state) => {
+        for(let i = 0; i < 8; i++) {
+          if (i == 3) {
+            current_state[i] = [none, none, none, black, white, none, none, none];
+          } else if (i == 4) {
+            current_state[i] = [none, none, none, white, black, none, none, none];
+          } else {
+            current_state[i] = [none, none, none, none, none, none, none, none];
+          }
+        }
 
-      for(let i = 0; i < vertical_square_length; i++) {
+        return current_state;
+      }
+      // 初期データ
+      current_state = make_current_state(current_state);
+      
+      // 要素作成
+      Object.keys(current_state).forEach((key) => {
         let tr = $("<tr></tr>").appendTo(tbody);
 
-        for(let k = 1; k <= lateral_square_length; k++) {
-          let id = k + (lateral_square_length * i);
+        current_state[key].forEach((val, k) => {
+          let id = key + '-' + k;
           current_state[id] = 0;
           let td = $('<td></td>').appendTo(tr);
-          $('<canvas  id="'+id+'" class="canvas" width="100%" height="100%"></canvas>').appendTo(td);
-        }
-      }
+          $('<canvas  id="'+id+'" class="canvas" width="70px" height="70px"></canvas>').appendTo(td);
+
+
+          if (val == black) {
+            let ctx = $('#'+id).get(0).getContext("2d");
+            ctx.strokeStyle = "black";
+            ctx.beginPath();
+            ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+            ctx.closePath();
+            ctx.stroke();
+          } else if (val == white) {
+            let ctx = $('#'+id).get(0).getContext("2d");
+            ctx.strokeStyle = "red";
+            ctx.beginPath();
+            ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+            ctx.closePath();
+            ctx.stroke();
+          }
+        });
+      });
 
 
 
 
 
 
-
-      // イベント
+      ////////////////////
+      // クリックイベント
+      ////////////////////
       let count = 0;
       $(".canvas").on("click", (e) => {
         // 終了したら押せない
@@ -83,41 +108,54 @@
         }
 
         let id = e.target.id;
+        let [vertical, beside] = id.split( '-' );
         // 既に入力済みのマス目は押せない
-        if (current_state[id] != 0) {
+        if (current_state[vertical][beside] != 0) {
           return;
         }
 
         count++;
 
         let ctx = e.target.getContext("2d");
-
         if (count % 2 == 1) {
           ctx.strokeStyle = "black";
           ctx.beginPath();
-          ctx.arc(50, 50, 30, 0, 2 * Math.PI);
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
           ctx.closePath();
           ctx.stroke();
 
-          current_state[id] = 1;
+          current_state[vertical][beside] = 1;
         } else {
+          ctx.strokeStyle = "red";
           ctx.beginPath();
-          ctx.moveTo(25, 25);
-          ctx.lineTo(75, 75);
-          ctx.moveTo(25, 75);
-          ctx.lineTo(75, 25);
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
           ctx.stroke();
-          current_state[id] = 2;
+          current_state[vertical][beside] = 2;
         }
 
-        which_win(current_state);
-  
-        if (count == all_square_length && !is_finish) {
-          $("#draw").show();
-          is_finish = true;
-        }
+
+
+        // 縦の判定
+
+
+        // 横の判定
+
+
+        // 斜めの判定
 
       });
+
+
+
+      // 縦の判定
+
+
+      // 横の判定
+
+
+      // 斜めの判定
+      
 
 
 
