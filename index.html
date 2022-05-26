@@ -15,11 +15,11 @@
       </tbody>
     </table>
 
-    <p>※ ○が先行</p>
+    <p>※ 黒が先行</p>
 
-    <p id="maru-win" style="display:none; color: red; font-size: 20px;">黒の勝利</p>
-    <p id="batu-win" style="display:none; color: red; font-size: 20px;">白の勝利</p>
-    <p id="draw" style="display:none; color: red; font-size: 20px;">引き分け</p>
+    <div id="winner">
+
+    </div>
     <p style="margin-top: 30px;">リセットするにはブラウザを更新してください</p>
   </div>
 
@@ -69,7 +69,6 @@
 
         current_state[key].forEach((val, k) => {
           let id = key + '-' + k;
-          current_state[id] = 0;
           let td = $('<td></td>').appendTo(tr);
           $('<canvas  id="'+id+'" class="canvas" width="70px" height="70px"></canvas>').appendTo(td);
 
@@ -100,87 +99,509 @@
       ////////////////////
       // クリックイベント
       ////////////////////
-      let count = 0;
+      // 順番フラグ
+      let turn;
+      let count = 1;
+      // クリック可能かのフラグ
+      let can_click = false;
       $(".canvas").on("click", (e) => {
         // 終了したら押せない
         if (is_finish) {
           return;
         }
 
+        // クリックされた要素を取得
         let id = e.target.id;
         let [vertical, beside] = id.split( '-' );
+        vertical = Number(vertical);
+        beside = Number(beside);
         // 既に入力済みのマス目は押せない
         if (current_state[vertical][beside] != 0) {
           return;
         }
 
-        count++;
+        // 順番を取得
+        turn = count % 2 == 1 ? black : white;
 
-        let ctx = e.target.getContext("2d");
-        if (count % 2 == 1) {
-          ctx.strokeStyle = "black";
+        // 下方向の判定
+        let under_data = vertical_under_judge(current_state, vertical, beside, turn);
+        let vertical_under_enemy_count = under_data[0];
+        can_click = under_data[1];
+        // 上方向の判定
+        let upper_data = vertical_upper_judge(current_state, vertical, beside, turn);
+        let vertical_upper_enemy_count = upper_data[0];
+        can_click = can_click == false ? upper_data[1] : can_click;
+        // 右方向の判定
+        let right_data = beside_right_judge(current_state, vertical, beside, turn);
+        let beside_right_enemy_count = right_data[0];
+        can_click = can_click == false ? right_data[1] : can_click;
+        // 左方向の判定
+        let left_data = beside_left_judge(current_state, vertical, beside, turn);
+        let beside_left_enemy_count = left_data[0];
+        can_click = can_click == false ? left_data[1] : can_click;
+        // 斜め左下方向の判定
+        let left_under_data = left_under_judge(current_state, vertical, beside, turn);
+        let left_under_enemy_count = left_under_data[0];
+        can_click = can_click == false ? left_under_data[1] : can_click;
+        // 斜め右下方向の判定
+        let right_under_data = right_under_judge(current_state, vertical, beside, turn);
+        let right_under_enemy_count = right_under_data[0];
+        can_click = can_click == false ? right_under_data[1] : can_click;
+        // 斜め左上方向の判定
+        let left_upper_data = left_upper_judge(current_state, vertical, beside, turn);
+        let left_upper_enemy_count = left_upper_data[0];
+        can_click = can_click == false ? left_upper_data[1] : can_click;
+        // 斜め右上方向の判定
+        let right_upper_data = right_upper_judge(current_state, vertical, beside, turn);
+        let right_upper_enemy_count = right_upper_data[0];
+        can_click = can_click == false ? right_upper_data[1] : can_click;
+
+        
+
+        // 変換
+        if (can_click) {
+          let ctx = e.target.getContext("2d");
+          ctx.strokeStyle = turn == black ? "black" : "red";
           ctx.beginPath();
           ctx.arc(35, 35, 20, 0, 2 * Math.PI);
           ctx.closePath();
           ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
 
-          current_state[vertical][beside] = 1;
-        } else {
-          ctx.strokeStyle = "red";
-          ctx.beginPath();
-          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
-          ctx.closePath();
-          ctx.stroke();
-          current_state[vertical][beside] = 2;
+
+          // 下方向
+          current_state = change_under(current_state, vertical, beside, vertical_under_enemy_count, turn);
+
+          // 上方向
+          current_state = change_upper(current_state, vertical, beside, vertical_upper_enemy_count, turn);
+
+          // 左方向
+          current_state = change_left(current_state, vertical, beside, beside_left_enemy_count, turn);
+
+          // 右方向
+          current_state = change_right(current_state, vertical, beside, beside_right_enemy_count, turn);
+
+          // 右上方向
+          current_state = change_right_upper(current_state, vertical, beside, right_upper_enemy_count, turn);
+
+          // 左上方向
+          current_state = change_left_upper(current_state, vertical, beside, left_upper_enemy_count, turn);
+
+          // 右下方向
+          current_state = change_right_under(current_state, vertical, beside, right_under_enemy_count, turn);
+
+          // 左下方向
+          current_state = change_left_under(current_state, vertical, beside, left_under_enemy_count, turn);
+
+
+          count++;
+
+          // 終了判定
+          is_finish = check_finish(current_state);
+
+          if (is_finish) {
+            let winner = which_winner(current_state);
+            let div = $("#winner");
+            $('<p style="color:red;">'+winner+'</p>').appendTo(div);
+          }
         }
 
-
-
-        // 縦の判定
-
-
-        // 横の判定
-
-
-        // 斜めの判定
-
+        // console.log(can_click);
       });
 
 
 
-      // 縦の判定
+      // 下方向の判定
+      const vertical_under_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = vertical; i < 8; i++) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          count++;
+        }
+
+        return [0, false];
+      }
 
 
-      // 横の判定
+      // 上方向の判定
+      const vertical_upper_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = vertical; i >= 0; i--) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          count++;
+        }
+
+        return [0, false];
+      }
 
 
-      // 斜めの判定
+      // 右方向の判定
+      const beside_right_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = beside; i < 8; i++) {
+          if (i == beside) {
+            continue;
+          }
+
+          if (current_state[vertical][i] == none) {
+            return [0, false];
+          }
+
+          if (current_state[vertical][i] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          count++;
+        }
+
+        return [0, false];
+      }
       
 
-
-
-
-
-      // 勝利判定
-      const which_win = (current_state) => {
-        win_patterns.forEach(pattern => {
-          let square_value1 = pattern[0];
-          let square_value2 = pattern[1];
-          let square_value3 = pattern[2];
-          if (current_state[square_value1] == 1 && current_state[square_value2] == 1 && current_state[square_value3] == 1) {
-            is_finish = true;
-            $("#maru-win").show();
-            return;
-          } else if (current_state[square_value1] == 2 && current_state[square_value2] == 2 && current_state[square_value3] == 2) {
-            is_finish = true;
-            $("#batu-win").show();
-            return;
+      // 左方向の判定
+      const beside_left_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = beside; i >= 0; i--) {
+          if (i == beside) {
+            continue;
           }
+
+          if (current_state[vertical][i] == none) {
+            return [0, false]
+          }
+
+          if (current_state[vertical][i] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          } 
+
+          count++;
+        }
+
+        return [0, false];
+      }
+
+
+      // 右斜め上方向の判定
+      const right_upper_judge = (current_state, vertical, beside, turn) => {  
+        let count = 0;      
+        for (let i = vertical; i >= 0; i--) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside+1] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside+1] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          beside++;
+          count++;
+        }
+
+        return [0, false];
+      }
+
+
+      // 左斜め上方向の判定
+      const left_upper_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = vertical; i >= 0; i--) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside-1] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside-1] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          beside--;
+          count++;
+        }
+
+        return [0, false];
+      }
+
+
+      // 右斜め下方向の判定
+      const right_under_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = vertical; i < 8; i++) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside+1] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside+1] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          beside++;
+          count++;
+        }
+
+        return [0, false];
+      }
+
+
+      // 左斜め下方向の判定
+      const left_under_judge = (current_state, vertical, beside, turn) => {
+        let count = 0;
+        for (let i = vertical; i < 8; i++) {
+          if (i == vertical) {
+            continue;
+          }
+
+          if (current_state[i][beside-1] == none) {
+            return [0, false];
+          }
+
+          if (current_state[i][beside-1] == turn) {
+            let can_click = count == 0 ? false : true;
+            return [count, can_click];
+          }
+
+          beside--;
+          count++;
+        }
+
+        return [0, false];
+      }
+
+
+
+
+
+      // 下方向変換
+      const change_under = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical++;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 上方向変換
+      const change_upper = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical--;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 左方向変換
+      const change_left = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          beside--;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 右方向変換
+      const change_right = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          beside++;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 右上方向変換
+      const change_right_upper = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical--;
+          beside++;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 左上方向変換
+      const change_left_upper = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical--;
+          beside--;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 右下方向変換
+      const change_right_under = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical++;
+          beside++;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+      // 左下方向変換
+      const change_left_under = (current_state, vertical, beside, count, turn) => {
+        for (let i = 1; i <= count; i++ ) {
+          vertical ++;
+          beside --;
+          let ctx = $("#"+vertical+"-"+beside).get(0).getContext("2d");
+          ctx.clearRect(0, 0, 200, 200);
+          ctx.strokeStyle = turn == black ? "black" : "red";
+          ctx.beginPath();
+          ctx.arc(35, 35, 20, 0, 2 * Math.PI);
+          ctx.closePath();
+          ctx.stroke();
+          current_state[vertical][beside] = turn == black ? black : white;
+        }
+
+        return current_state;
+      }
+
+
+
+
+
+      // 終了判定
+      const check_finish = (current_state) => {
+        let is_finish = true;
+        Object.keys(current_state).forEach((key) => {
+          current_state[key].forEach((val) => {
+            if (val == 0) {
+              is_finish = false;
+            }
+          })
         });
 
-
-        return false;
+        return is_finish;
       }
+
+
+      // 勝敗判定
+      const which_winner = (current_state) => {
+        let black_count = 0;
+        let white_count = 0;
+
+        Object.keys(current_state).forEach((key) => {
+          current_state[key].forEach((val) => {
+            if (val == 1) {
+              black_count++;
+            } else if (val == 2) {
+              white_count++;
+            }
+          })
+        });
+
+        if (black_count > white_count) {
+          return '黒の勝ち';
+        } else if (black_count < white_count) {
+          return '白の勝ち';
+        } else if (black_count == white_count) {
+          return '引き分け;'
+        }
+        
+      }
+
+
     });
 
 
